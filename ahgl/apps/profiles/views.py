@@ -11,6 +11,7 @@ from django.utils.translation import ugettext as _
 from django.template.loader import render_to_string
 from django.utils import simplejson as json
 from django.template import RequestContext
+from django.db.models import Count
 
 from idios.views import ProfileDetailView
 from idios.utils import get_profile_model
@@ -67,7 +68,7 @@ class StandingsView(TournamentSlugContextView, ListView):
         return ctx
     
     def get_queryset(self):
-        return TournamentRound.objects.filter(tournament=self.kwargs['tournament'])
+        return TournamentRound.objects.filter(tournament=self.kwargs['tournament'], published=True)
 
     def get_template_names(self):
         return "profiles/standings.html"
@@ -139,6 +140,13 @@ class TeamMembershipView(TournamentSlugContextView, DetailView):
             raise Http404(_(u"No %(verbose_name)s found matching the query") %
                           {'verbose_name': queryset.model._meta.verbose_name})
         return obj
+
+class MVPView(TournamentSlugContextView, ListView):
+    template_name = "profiles/mvp.html"
+    context_object_name = "players"
+    
+    def get_queryset(self):
+        return TeamMembership.objects.filter(team__tournament=self.kwargs.get('tournament'), game_wins__match__published=True).select_related('team','profile').annotate(win_count=Count('game_wins')).order_by('-win_count')
 
 class MyProfileDetailView(ProfileDetailView):
     def get_object(self):
